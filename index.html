@@ -348,7 +348,11 @@
     <div class="footer-note">本地离线版会把最近一次结果保存在当前浏览器中。清理浏览器数据后，记录可能会消失。</div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    const SUPABASE_URL = "https://clqnsmtxkzgwnvjwzuqw.supabase.co";
+    const SUPABASE_KEY = "sb_publishable__nsdhawx3xwkRSpRST02A_Y2MyEg4_";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const STORAGE_KEY = 'student-stress-source-quiz-offline-v2';
 
     const TYPES = {
@@ -624,6 +628,42 @@
       document.getElementById('nextBtn').textContent = state.current === QUESTIONS.length - 1 ? '查看结果' : '下一题';
     }
 
+
+    async function uploadResultToSupabase(result){
+      try{
+        const payload = {
+          top1_type: result.top3[0] ? result.top3[0].type.name : null,
+          top2_type: result.top3[1] ? result.top3[1].type.name : null,
+          top3_type: result.top3[2] ? result.top3[2].type.name : null,
+
+          academic_load_score: result.scores.academic_load ?? 0,
+          expectation_pressure_score: result.scores.expectation_pressure ?? 0,
+          efficiency_lock_score: result.scores.efficiency_lock ?? 0,
+          comparison_anxiety_score: result.scores.comparison_anxiety ?? 0,
+          social_sensitivity_score: result.scores.social_sensitivity ?? 0,
+          conflict_isolation_score: result.scores.conflict_isolation ?? 0,
+          family_pressure_score: result.scores.family_pressure ?? 0,
+          family_imbalance_score: result.scores.family_imbalance ?? 0,
+          environment_drain_score: result.scores.environment_drain ?? 0,
+          future_confusion_score: result.scores.future_confusion ?? 0,
+          self_doubt_score: result.scores.self_doubt ?? 0,
+          interest_suppression_score: result.scores.interest_suppression ?? 0
+        };
+
+        const { error } = await supabaseClient
+          .from('quiz_results')
+          .insert([payload]);
+
+        if(error){
+          console.error('Supabase 插入失败：', error);
+        }else{
+          console.log('结果已写入 Supabase');
+        }
+      }catch(err){
+        console.error('上传结果时报错：', err);
+      }
+    }
+
     function calculateResult(){
       const scores = {};
       Object.keys(TYPES).forEach(key => scores[key] = 0);
@@ -675,11 +715,12 @@
       if(!raw){ alert('当前浏览器里还没有保存过结果。你可以先完成一次测试。'); return; }
       try{ renderResult(JSON.parse(raw)); } catch(e){ alert('读取上次结果失败。'); }
     }
-    function finishQuiz(){
+    async function finishQuiz(){
       const result = calculateResult();
       state.result = result;
       saveResult(result);
       renderResult(result);
+      await uploadResultToSupabase(result);
     }
     function restartToHome(){ showView(homeView); }
     function copyResultText(){
